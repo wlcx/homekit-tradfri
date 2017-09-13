@@ -49,24 +49,35 @@ func (hub *tradfriHub) attachHcHandlers(bulbID string, acc *tradfriBulb) {
 	})
 }
 
+var bulbs = map[string]string{ //TODO make this not hardcoded
+	"Floor Lamp":   "65538",
+	"Bedside Lamp": "65537",
+}
+
 func main() {
 	ip, port := browseForTradfriHub()
 	hub := initTradfriHub(ip, port)
 
 	hclog.Debug.Enable()
-	info := accessory.Info{
-		Name: "Testlamp",
+
+	primaryAccInfo := accessory.Info{
+		Name: fmt.Sprintf("%s Trådfri Bridge", os.Getenv("BRIDGE_NAME")),
 	}
-	acc := newTradfriBulb(info)
-	info2 := accessory.Info{
-		Name: "Testlamp2",
+
+	bridge := accessory.New(primaryAccInfo, accessory.TypeBridge)
+
+	var accessories []*accessory.Accessory
+
+	for name, bulbID := range bulbs {
+		acc := newTradfriBulb(accessory.Info{
+			Name: name,
+		})
+		hub.attachHcHandlers(bulbID, acc)
+		accessories = append(accessories, acc.Accessory)
 	}
-	acc2 := newTradfriBulb(info2)
-	hub.attachHcHandlers("65538", acc)
-	hub.attachHcHandlers("65537", acc2)
 
 	config := hc.Config{Pin: "12344321", StoragePath: "./db"}
-	t, err := hc.NewIPTransport(config, acc.Accessory, acc2.Accessory)
+	t, err := hc.NewIPTransport(config, bridge, accessories...)
 	if err != nil {
 		log.Panic(err)
 	}
